@@ -1,0 +1,3 @@
+interface:
+  display_name: "Diet Context"
+  short_description: "Trim context with recoverable offloading and structured handoffs"
