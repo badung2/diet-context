@@ -102,24 +102,6 @@ Artifacts / Relevant Files
 
 ---
 
-## dynamic-workflow와의 관계
-
-이 Skill은 orchestration(오케스트레이션)을 담당하지 않는다.
-
-역할 분리는 다음과 같다.
-
-```text
-dynamic-workflow
-→ 누구에게, 언제, 어떤 순서로 일을 위임할지 결정
-
-diet-context
-→ 그 과정에서 어떤 context를 얼마나 줄여서 넘길지 결정
-```
-
-따라서 `diet-context`는 스스로 `delegate_task`를 호출하기 위해 존재하지 않는다.
-
-다른 workflow가 이미 delegation(위임)을 결정했을 때 전달되는 payload(전달 컨텍스트)를 최적화하는 역할이다.
-
 ---
 
 ## 고정 임계값을 쓰지 않는 이유
@@ -188,9 +170,9 @@ diet-context
 
 ---
 
-## 설치 개념
+## 설치 방법
 
-repo root 자체가 Skill이다.
+이 repository는 **repo root 자체가 Skill**이 되도록 구성되어 있다.
 
 ```text
 diet-context/
@@ -201,23 +183,78 @@ diet-context/
    └── openai.yaml
 ```
 
-사용하는 agent runtime의 global Skill directory에 repository root를 clone/copy/link하고 `SKILL.md`가 discoverable(탐색 가능)한지 확인하면 된다.
+사용 중인 agent runtime의 **global Skill directory(전역 Skill 폴더)** 아래에 이 repository를 `diet-context`라는 이름으로 clone하면 된다.
 
-환경마다 Skill 경로가 다르므로 이 프로젝트가 특정 절대 경로를 강제하지는 않는다.
+### Windows PowerShell
 
-Hermes에는 GitHub URL과 함께 다음처럼 요청하면 된다.
+Codex 계열 전역 Skill 경로를 사용하는 환경이라면:
 
-```text
-이 repository의 README와 SKILL.md를 먼저 읽어 역할과 동작 경계를 파악해.
-그 다음 이 환경의 전역 Skill로 설치해.
-dynamic-workflow는 수정하지 말고 diet-context와 함께 동작하도록 유지해.
-설치 후 Skill이 discoverable한지 검증해.
+```powershell
+$skillsRoot = if ($env:CODEX_HOME) {
+    Join-Path $env:CODEX_HOME "skills"
+} else {
+    Join-Path $HOME ".codex\skills"
+}
+
+New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null
+git clone https://github.com/badung2/diet-context.git (Join-Path $skillsRoot "diet-context")
 ```
 
+나중에 업데이트할 때는:
+
+```powershell
+$skillPath = if ($env:CODEX_HOME) {
+    Join-Path $env:CODEX_HOME "skills\diet-context"
+} else {
+    Join-Path $HOME ".codex\skills\diet-context"
+}
+
+git -C $skillPath pull
+```
+
+### Linux / macOS
+
+Codex 계열 전역 Skill 경로를 사용하는 환경이라면:
+
+```bash
+SKILLS_ROOT="${CODEX_HOME:-$HOME/.codex}/skills"
+mkdir -p "$SKILLS_ROOT"
+git clone https://github.com/badung2/diet-context.git "$SKILLS_ROOT/diet-context"
+```
+
+나중에 업데이트할 때는:
+
+```bash
+SKILL_PATH="${CODEX_HOME:-$HOME/.codex}/skills/diet-context"
+git -C "$SKILL_PATH" pull
+```
+
+### 다른 runtime
+
+사용 중인 runtime이 다른 전역 Skill 경로를 사용한다면 해당 Skill 디렉터리 아래에 이 repository를 `diet-context` 폴더로 clone/copy하면 된다.
+
+설치 후에는 다음을 확인한다.
+
+1. `diet-context/SKILL.md`가 존재하는지 확인
+2. runtime에서 Skill이 discoverable(탐색 가능)한지 확인
+3. Skill metadata를 세션 시작 시에만 읽는 환경이라면 새 세션 시작
+
+### Agent에게 설치를 맡기는 방법
+
+GitHub 주소만 넘기고 다음처럼 요청할 수도 있다.
+
+```text
+https://github.com/badung2/diet-context
+
+이 repository의 README.md와 SKILL.md를 먼저 읽어.
+현재 환경의 global Skill directory를 확인한 다음
+diet-context를 전역 Skill로 설치하고,
+SKILL.md가 discoverable한지 검증해.
+
+환경의 실제 Skill 경로를 먼저 확인하고,
+경로를 추측해서 설치하지 마.
+```
+
+즉 특정 runtime에서는 `~/.codex/skills`가 맞을 수 있지만, 다른 환경에서는 실제 전역 Skill 경로를 확인한 뒤 설치해야 한다.
+
 ---
-
-## 출처 / Inspiration
-
-이 Skill의 설계는 open-source [Mixdog](https://github.com/tribgames/mixdog)에서 확인한 context-efficiency(컨텍스트 효율화) 아이디어, 특히 큰 tool output의 외부화, context compaction, selective retrieval 패턴에서 일부 영감을 받았다.
-
-다만 `diet-context`는 Mixdog runtime의 포트가 아니며 Mixdog 코드나 Mixdog 실행환경을 필요로 하지 않는 독립적인 policy Skill이다.
