@@ -305,50 +305,6 @@ When uncertain, preserve more context.
 
 ---
 
-# Relationship with orchestration skills
-
-Diet Context is intentionally **not an orchestrator**.
-
-It must not decide:
-
-- whether another agent should be created;
-- which agent should receive work;
-- how many agents should run;
-- which model an agent should use;
-- whether work should be parallel or sequential;
-- agent permissions;
-- workflow stage order.
-
-Those decisions belong to an orchestration layer such as a `dynamic-workflow` skill.
-
-The separation is:
-
-```text
-dynamic-workflow
-    -> who does what, when, and in what order
-
-diet-context
-    -> what context should travel with that work
-```
-
-This makes the two skills complementary rather than competing.
-
-### Example
-
-```text
-Parent agent
-   |
-   | dynamic-workflow decides to delegate
-   v
-Coder agent
-   |
-   | Diet Context trims bulky logs and prepares a handoff
-   v
-Reviewer agent
-```
-
-Diet Context does not cause the delegation. It only optimizes the payload that crosses the boundary.
-
 ---
 
 # Recoverable compression
@@ -457,31 +413,76 @@ diet-context/
     └── openai.yaml
 ```
 
-A compatible Skill runtime can install the repository by placing or linking the repository root into its global Skill directory.
+Install it by cloning the repository into the global Skill directory used by your agent runtime.
 
-Because runtimes differ, Diet Context does not hard-code a universal installation path.
+## Windows PowerShell
 
-A generic installer should:
+If your runtime uses the Codex-style global Skill directory:
 
-1. clone or download this repository;
-2. detect the runtime's global Skill directory;
-3. place or link the repository root there;
-4. verify that `SKILL.md` is discoverable;
-5. start a fresh session if the runtime only loads Skill metadata at session startup.
+```powershell
+$skillsRoot = if ($env:CODEX_HOME) {
+    Join-Path $env:CODEX_HOME "skills"
+} else {
+    Join-Path $HOME ".codex\skills"
+}
 
-### Hermes-friendly install request
-
-After publishing this repository, a user can give Hermes the repository URL and say something like:
-
-```text
-Read the README and SKILL.md in this repository.
-Understand the role and operating boundaries of Diet Context,
-then install it as a global Skill for this environment.
-Do not modify dynamic-workflow; Diet Context should complement it.
-Verify that the Skill is discoverable after installation.
+New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null
+git clone https://github.com/badung2/diet-context.git (Join-Path $skillsRoot "diet-context")
 ```
 
-That lets Hermes inspect the public documentation before deciding how to install it in its own environment.
+To update later:
+
+```powershell
+$skillPath = if ($env:CODEX_HOME) {
+    Join-Path $env:CODEX_HOME "skills\diet-context"
+} else {
+    Join-Path $HOME ".codex\skills\diet-context"
+}
+
+git -C $skillPath pull
+```
+
+## Linux / macOS
+
+If your runtime uses the Codex-style global Skill directory:
+
+```bash
+SKILLS_ROOT="${CODEX_HOME:-$HOME/.codex}/skills"
+mkdir -p "$SKILLS_ROOT"
+git clone https://github.com/badung2/diet-context.git "$SKILLS_ROOT/diet-context"
+```
+
+To update later:
+
+```bash
+SKILL_PATH="${CODEX_HOME:-$HOME/.codex}/skills/diet-context"
+git -C "$SKILL_PATH" pull
+```
+
+## Other runtimes
+
+If your runtime uses a different global Skill directory, clone or copy this repository into that directory under a folder named `diet-context`.
+
+After installation:
+
+1. verify that `diet-context/SKILL.md` is present;
+2. verify that the runtime can discover the Skill;
+3. start a fresh session if Skill metadata is only loaded at session startup.
+
+## Agent-assisted installation
+
+You can also give an agent the repository URL and ask it to install the Skill:
+
+```text
+Read README.md and SKILL.md from:
+https://github.com/badung2/diet-context
+
+Determine this environment's global Skill directory, install the repository
+there as diet-context, then verify that SKILL.md is discoverable.
+Do not modify the Skill's contents unless required for compatibility.
+```
+
+If the environment does not use a Codex-style Skill directory, the agent should detect the correct location rather than blindly using `~/.codex/skills`.
 
 ---
 
@@ -527,14 +528,6 @@ recoverable background evidence
 ```
 
 and to maintain a compact operational state that can continue the work without carrying the complete history of the work.
-
----
-
-# Inspiration
-
-The design was inspired in part by context-efficiency ideas observed in the open-source [Mixdog](https://github.com/tribgames/mixdog) project, especially patterns around large tool-output handling, context compaction, and selective retrieval.
-
-Diet Context is an independent, lightweight policy Skill rather than a port of the Mixdog runtime. It contains no Mixdog runtime code and does not require Mixdog.
 
 ---
 
